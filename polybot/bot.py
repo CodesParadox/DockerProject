@@ -144,3 +144,14 @@ class ImageProcessingBot(Bot):
         self.send_photo(msg['chat']['id'], filtered_img_path)
 
 
+
+class ObjectDetectionBot(Bot):
+    def handle_message(self, msg):
+        logger.info(f'Incoming message: {msg}')
+
+        if self.is_current_msg_photo(msg):
+            photo_path = self.download_user_photo(msg)
+
+            # TODO upload the photo to S3
+            # TODO send an HTTP request to the `yolo5` service for prediction
+            # TODO send the returned results to the Telegram end-user
