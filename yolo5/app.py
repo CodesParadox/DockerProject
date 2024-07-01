@@ -4,10 +4,21 @@ from flask import Flask, request
 from detect import run
 import uuid
 import yaml
+import boto3
 from loguru import logger
 import os
+import requests
+from pymongo import MongoClient
+
 
 images_bucket = os.environ['BUCKET_NAME']
+
+## Initialize S3 and mongoDB clients
+s3 = boto3.client('s3')
+client = MongoClient("mongodb://localhost:27017/")
+db = client["predictions"]
+collection = db["prediction_summary"]
+
 
 with open("data/coco128.yaml", "r") as stream:
     names = yaml.safe_load(stream)['names']
@@ -26,7 +37,12 @@ def predict():
 
     # TODO download img_name from S3, store the local image path in the original_img_path variable.
     #  The bucket name is provided as an env var BUCKET_NAME.
-    original_img_path = ...
+
+    s3 = boto3.client('s3')
+    original_img_path = Path(f'static/data/{prediction_id}/{img_name}')
+    s3.download_file(images_bucket, img_name, str(original_img_path))
+
+
 
     logger.info(f'prediction: {prediction_id}/{original_img_path}. Download img completed')
 
@@ -47,6 +63,10 @@ def predict():
     predicted_img_path = Path(f'static/data/{prediction_id}/{original_img_path}')
 
     # TODO Uploads the predicted image (predicted_img_path) to S3 (be careful not to override the original image).
+    s3.upload_file(str(predicted_img_path), images_bucket, f'predicted_{img_name}')
+    logger.info(f'prediction: {prediction_id}/{original_img_path}. Upload predicted img completed')
+
+
 
     # Parse prediction labels and create a summary
     pred_summary_path = Path(f'static/data/{prediction_id}/labels/{original_img_path.split(".")[0]}.txt')
@@ -73,6 +93,14 @@ def predict():
         }
 
         # TODO store the prediction_summary in MongoDB
+        # i run mongodb in docker container
+        # docker run -d -p 27017:27017 --name mongodb mongo
+
+        client = pymongo.MongoClient("mongodb://localhost:27017/")
+        db = client["predictions"]
+        collection = db["prediction_summary"]
+        collection.insert_one(prediction_summary)
+        logger.info(f'prediction: {prediction_id}/{original_img_path}. prediction summary saved to MongoDB')
 
         return prediction_summary
     else:

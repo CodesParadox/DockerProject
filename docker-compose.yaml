@@ -1,0 +1,39 @@
+version: '3.8'
+services:
+  polybot:
+    image: polybot:v1
+    environment:
+      - TELEGRAM_BOT_TOKEN_FILE=/run/secrets/telegram_bot_token
+    secrets:
+      - telegram_bot_token
+    volumes:
+      - ./photos:/app/photos
+    depends_on:
+      - yolo5
+
+  yolo5:
+    image: yolo5:v1
+    ports:
+      - 5000:5000
+
+  mongo:
+    image: mongo
+    ports:
+      - 27017:27017
+
+  s3:
+    image: minio/minio
+    volumes:
+      - s3data:/data
+    ports:
+      - 9000:9000
+    command: server /data
+
+volumes:
+  s3data:
+
+secrets:
+  telegram_bot_token:
+    file: ./secrets/telegram_bot_token
+
+
