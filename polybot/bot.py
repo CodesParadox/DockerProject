@@ -47,6 +47,7 @@ class Bot:
         """
         self.telegram_bot_client.send_message(chat_id, text, reply_to_message_id=quoted_msg_id)
 
+    #function to check if the current message is a photo or not
     def is_current_msg_photo(self, msg):
         """
         Checks if the current message is a photo.
@@ -257,3 +258,6 @@ class ObjectDetectionBot(Bot):
             chat_id,
             InputFile(img_path)
         )
+
+
+
