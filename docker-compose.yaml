@@ -11,11 +11,10 @@ services:
       - mongo1-data:/data/db
     command: mongod --replSet myReplicaSet --bind_ip localhost,mongo1
     healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
-      timeout: 10s
       retries: 5
-      start_period: 40s
+
   mongo2:
     image: mongo:5
     container_name: mongo2
@@ -27,11 +26,10 @@ services:
       - mongo2-data:/data/db
     command: mongod --replSet myReplicaSet --bind_ip localhost,mongo2
     healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
-      timeout: 10s
       retries: 5
-      start_period: 40s
+
   mongo3:
     image: mongo:5
     container_name: mongo3
@@ -43,18 +41,20 @@ services:
       - mongo3-data:/data/db
     command: mongod --replSet myReplicaSet --bind_ip localhost,mongo3
     healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
-      timeout: 10s
       retries: 5
-      start_period: 40s
+
   mongo-init-replica:
     image: mongo:5
     container_name: mongo-init-replica
     depends_on:
-      - mongo1
-      - mongo2
-      - mongo3
+      mongo1:
+        condition: service_healthy
+      mongo2:
+        condition: service_healthy
+      mongo3:
+        condition: service_healthy
     networks:
       - mongoCluster
       - yolo
@@ -62,10 +62,10 @@ services:
       bash -c "
       sleep 30;
       mongosh --host mongo1 --eval 'rs.initiate({_id: \"myReplicaSet\", members: [{_id: 0, host: \"mongo1:27017\"}, {_id: 1, host: \"mongo2:27017\"}, {_id: 2, host: \"mongo3:27017\"}]})';
-      mongosh --host mongo1 --eval 'rs.status()';
+      mongosh --host mongo1 --eval 'rs.status()'
       tail -f /dev/null
       "
-    restart: on-failure
+
   polybot:
     image: ${POLY_IMAGE_NAME}
     container_name: polybot
@@ -74,19 +74,8 @@ services:
     ports:
       - ${POLY_PORT}:${POLY_PORT}
     env_file:
-      - .env
-    environment:
-      - TELEGRAM_APP_URL=${TELEGRAM_APP_URL}
-      - BUCKET_NAME=${BUCKET_NAME}
-      - YOLO_SERVICE_URL=${YOLO_SERVICE_URL}
-      - MONGO_URI=${MONGO_URI}
-      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${POLY_PORT}/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: on-failure
+      .env
+
   yolo5:
     image: ${YOLO_IMAGE_NAME}
     container_name: yolo5
@@ -96,15 +85,8 @@ services:
     ports:
       - ${YOLO_PORT}:${YOLO_PORT}
     env_file:
-      - .env
-    environment:
-      - BUCKET_NAME=${BUCKET_NAME}
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${YOLO_PORT}/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: on-failure
+      .env
+
 networks:
   mongoCluster:
     name: mongoCluster
@@ -113,7 +95,9 @@ networks:
     name: polybot
   yolo:
     name: yolo
+
 volumes:
   mongo1-data:
   mongo2-data:
   mongo3-data:
+
