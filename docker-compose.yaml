@@ -1,39 +1,177 @@
-version: '3.8'
 services:
-  polybot:
-    image: polybot:v1
-    environment:
-      - TELEGRAM_BOT_TOKEN_FILE=/run/secrets/telegram_bot_token
-    secrets:
-      - telegram_bot_token
-    volumes:
-      - ./photos:/app/photos
-    depends_on:
-      - yolo5
-
-  yolo5:
-    image: yolo5:v1
-    ports:
-      - 5000:5000
-
-  mongo:
-    image: mongo
+  mongo1:
+    image: mongo:5
+    container_name: mongo1
+    networks:
+      - mongoCluster
+      - yolo
     ports:
       - 27017:27017
-
-  s3:
-    image: minio/minio
     volumes:
-      - s3data:/data
+      - mongo1-data:/data/db
+    command: mongod --replSet myReplicaSet --bind_ip localhost,mongo1
+
+  mongo2:
+    image: mongo:5
+    container_name: mongo2
+    networks:
+      - mongoCluster
     ports:
-      - 9000:9000
-    command: server /data
+      - 27018:27017
+    volumes:
+      - mongo2-data:/data/db
+    command: mongod --replSet myReplicaSet --bind_ip localhost,mongo2
+
+  mongo3:
+    image: mongo:5
+    container_name: mongo3
+    networks:
+      - mongoCluster
+    ports:
+      - 27019:27017
+    volumes:
+      - mongo3-data:/data/db
+    command: mongod --replSet myReplicaSet --bind_ip localhost,mongo3
+
+  mongo-init-replica:
+    image: mongo:5
+    container_name: mongo-init-replica
+    depends_on:
+      - mongo1
+      - mongo2
+      - mongo3
+    networks:
+      - mongoCluster
+      - yolo
+    entrypoint: >
+      bash -c "
+      sleep 10;
+      mongosh --host mongo1 --eval 'rs.initiate({_id: \"myReplicaSet\", members: [{_id: 0, host: \"mongo1:27017\"}, {_id: 1, host: \"mongo2:27017\"}, {_id: 2, host: \"mongo3:27017\"}]})';
+      mongosh --host mongo1 --eval 'rs.status()'
+      "
+
+  polybot:
+    image: ${POLY_IMAGE_NAME}
+    container_name: polybot
+    networks:
+      - polybot
+    ports:
+      - ${POLY_PORT}:${POLY_PORT}
+    env_file:
+      .env
+
+  yolo5:
+    image: ${YOLO_IMAGE_NAME}
+    container_name: yolo5
+    networks:
+      - yolo
+      - polybot
+    ports:
+      - ${YOLO_PORT}:${YOLO_PORT}
+    env_file:
+      .env
+
+networks:
+  mongoCluster:
+    name: mongoCluster
+    driver: bridge
+  polybot:
+    name: polybot
+  yolo:
+    name: yolo
 
 volumes:
-  s3data:
-
-secrets:
-  telegram_bot_token:
-    file: ./secrets/telegram_bot_token
+  mongo1-data:
+  mongo2-data:
+  mongo3-data:
 
 
+#version: '3.8'
+#
+#services:
+#  mongo1:
+#    image: mongo:5
+#    container_name: mongo1
+#    networks:
+#      - mongoCluster
+#      - yolo
+#    ports:
+#      - 27017:27017
+#    volumes:
+#      - mongo1-data:/data/db
+#    command: mongod --replSet myReplicaSet --bind_ip localhost,mongo1
+#
+#  mongo2:
+#    image: mongo:5
+#    container_name: mongo2
+#    networks:
+#      - mongoCluster
+#    ports:
+#      - 27018:27017
+#    volumes:
+#      - mongo2-data:/data/db
+#    command: mongod --replSet myReplicaSet --bind_ip localhost,mongo2
+#
+#  mongo3:
+#    image: mongo:5
+#    container_name: mongo3
+#    networks:
+#      - mongoCluster
+#    ports:
+#      - 27019:27017
+#    volumes:
+#      - mongo3-data:/data/db
+#    command: mongod --replSet myReplicaSet --bind_ip localhost,mongo3
+#
+#  mongo-init-replica:
+#    image: mongo:5
+#    container_name: mongo-init-replica
+#    depends_on:
+#      - mongo1
+#      - mongo2
+#      - mongo3
+#    networks:
+#      - mongoCluster
+#    entrypoint: >
+#      bash -c "
+#      sleep 10;
+#      mongosh --host mongo1 --eval 'rs.initiate({_id: \"myReplicaSet\", members: [{_id: 0, host: \"mongo1:27017\"}, {_id: 1, host: \"mongo2:27017\"}, {_id: 2, host: \"mongo3:27017\"}]})';
+#      mongosh --host mongo1 --eval 'rs.status()'
+#      "
+#
+#  polybot:
+#    image: ${POLY_IMAGE_NAME}
+#    container_name: polybot
+#    networks:
+#      - polybot
+#    ports:
+#      - ${POLY_PORT}:${POLY_PORT}
+#    environment:
+#      TELEGRAM_APP_URL:
+#      BUCKET_NAME:
+#      YOLO_NAME: yolo5
+#
+#  yolo5:
+#    image: ${YOLO_IMAGE_NAME}
+#    container_name: yolo5
+#    networks:
+#      - yolo
+#      - polybot
+#    ports:
+#      - ${YOLO_PORT}:${YOLO_PORT}
+#    environment:
+#      BUCKET_NAME:
+#
+#networks:
+#  mongoCluster:
+#    name: mongoCluster
+#    driver: bridge
+#  polybot:
+#    name: polybot
+#  yolo:
+#    name: yolo
+#
+#volumes:
+#  mongo1-data:
+#  mongo2-data:
+#  mongo3-data:

@@ -132,6 +132,7 @@ class ImageProcessingBot(Bot):
      (e.g., rotate, salt and pepper noise), and send the processed photo back to the user. 
     """
 
+
    #the init method is used to initialize the bot with the token and the telegram chat url
     def __init__(self, token, telegram_chat_url):
         super().__init__(token, telegram_chat_url)

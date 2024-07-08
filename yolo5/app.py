@@ -13,6 +13,10 @@ from pymongo import MongoClient
 
 images_bucket = os.environ['BUCKET_NAME']
 
+with open("data/coco128.yaml", "r") as stream:
+    names = yaml.safe_load(stream)['names']
+
+app = Flask(__name__)
 ## Initialize S3 and mongoDB clients
 s3 = boto3.client('s3')
 client = MongoClient("mongodb://localhost:27017/")
@@ -20,10 +24,6 @@ db = client["predictions"]
 collection = db["prediction_summary"]
 
 
-with open("data/coco128.yaml", "r") as stream:
-    names = yaml.safe_load(stream)['names']
-
-app = Flask(__name__)
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -41,9 +41,6 @@ def predict():
     s3 = boto3.client('s3')
     original_img_path = Path(f'static/data/{prediction_id}/{img_name}')
     s3.download_file(images_bucket, img_name, str(original_img_path))
-
-
-
     logger.info(f'prediction: {prediction_id}/{original_img_path}. Download img completed')
 
     # Predicts the objects in the image
@@ -96,9 +93,6 @@ def predict():
         # i run mongodb in docker container
         # docker run -d -p 27017:27017 --name mongodb mongo
 
-        client = pymongo.MongoClient("mongodb://localhost:27017/")
-        db = client["predictions"]
-        collection = db["prediction_summary"]
         collection.insert_one(prediction_summary)
         logger.info(f'prediction: {prediction_id}/{original_img_path}. prediction summary saved to MongoDB')
 
