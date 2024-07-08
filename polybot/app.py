@@ -8,6 +8,12 @@ app = flask.Flask(__name__)
 TELEGRAM_TOKEN = os.environ['TELEGRAM_TOKEN']
 TELEGRAM_APP_URL = os.environ['TELEGRAM_APP_URL']
 
+#precheck the token and url
+if not TELEGRAM_TOKEN or not TELEGRAM_APP_URL:
+    raise RuntimeError("Please provide the TELEGRAM_TOKEN and TELEGRAM_APP_URL environment variables")
+
+
+# Define the routes
 
 @app.route('/', methods=['GET'])
 def index():

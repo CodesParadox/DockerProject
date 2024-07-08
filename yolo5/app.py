@@ -11,6 +11,7 @@ import requests
 from pymongo import MongoClient
 
 
+
 images_bucket = os.environ['BUCKET_NAME']
 
 with open("data/coco128.yaml", "r") as stream:
