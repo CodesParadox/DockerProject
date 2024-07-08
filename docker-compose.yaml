@@ -10,10 +10,6 @@ services:
     volumes:
       - mongo1-data:/data/db
     command: mongod --replSet myReplicaSet --bind_ip localhost,mongo1
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      retries: 5
 
   mongo2:
     image: mongo:5
@@ -25,10 +21,6 @@ services:
     volumes:
       - mongo2-data:/data/db
     command: mongod --replSet myReplicaSet --bind_ip localhost,mongo2
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      retries: 5
 
   mongo3:
     image: mongo:5
@@ -40,30 +32,22 @@ services:
     volumes:
       - mongo3-data:/data/db
     command: mongod --replSet myReplicaSet --bind_ip localhost,mongo3
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      retries: 5
 
   mongo-init-replica:
     image: mongo:5
     container_name: mongo-init-replica
     depends_on:
-      mongo1:
-        condition: service_healthy
-      mongo2:
-        condition: service_healthy
-      mongo3:
-        condition: service_healthy
+      - mongo1
+      - mongo2
+      - mongo3
     networks:
       - mongoCluster
       - yolo
     entrypoint: >
       bash -c "
-      sleep 60;
+      sleep 10;
       mongosh --host mongo1 --eval 'rs.initiate({_id: \"myReplicaSet\", members: [{_id: 0, host: \"mongo1:27017\"}, {_id: 1, host: \"mongo2:27017\"}, {_id: 2, host: \"mongo3:27017\"}]})';
-      mongosh --host mongo1 --eval 'rs.status()';
-      tail -f /dev/null
+      mongosh --host mongo1 --eval 'rs.status()'
       "
 
   polybot:
