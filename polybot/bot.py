@@ -9,7 +9,6 @@ import requests
 from pathlib import Path
 import yaml
 
-
 class Bot:
     """
     The Bot class is a simple echo bot that communicates with Telegram servers.
@@ -19,7 +18,7 @@ class Bot:
         """
         Initializes the Bot with a token and a Telegram chat URL.
 
-        :param token: The Telaegram bot token.
+        :param token: The Telegram bot token.
         :param telegram_chat_url: The URL of the Telegram chat.
         """
         self.telegram_bot_client = telebot.TeleBot(token)
@@ -47,7 +46,6 @@ class Bot:
         """
         self.telegram_bot_client.send_message(chat_id, text, reply_to_message_id=quoted_msg_id)
 
-    #function to check if the current message is a photo or not
     def is_current_msg_photo(self, msg):
         """
         Checks if the current message is a photo.
@@ -89,10 +87,7 @@ class Bot:
         if not os.path.exists(img_path):
             raise RuntimeError("Image path doesn't exist")
 
-        self.telegram_bot_client.send_photo(
-            chat_id,
-            InputFile(img_path)
-        )
+        self.telegram_bot_client.send_photo(chat_id, InputFile(img_path))
 
     def handle_message(self, msg):
         """
@@ -125,22 +120,11 @@ class ImageProcessingBot(Bot):
     """
     The ImageProcessingBot class extends the Bot class to process incoming photo messages.
     """
-    """
-        # TODO: Implement the ImageProcessingBot class
-    #  The ImageProcessingBot class should extend the Bot class and override the handle_message method.
-    #  The handle_message method should check if the incoming message is a photo.
-    #  If the message is a photo, the bot should download the photo, apply some image processing filters
-     (e.g., rotate, salt and pepper noise), and send the processed photo back to the user. 
-    """
 
-
-   #the init method is used to initialize the bot with the token and the telegram chat url
     def __init__(self, token, telegram_chat_url):
         super().__init__(token, telegram_chat_url)
         self.config = yaml.safe_load(open('config.yaml'))
         self.yolo5_url = self.config['yolo5_url']
-
-
 
     def handle_message(self, msg):
         """
@@ -160,104 +144,31 @@ class ImageProcessingBot(Bot):
             self.send_photo(msg['chat']['id'], img_path)
         else:
             self.send_text(msg['chat']['id'], 'Please send a photo')
+
         # save the filtered image to a new file
         filtered_img_path = img.save_img()
         # send the filtered image to the user
         self.send_photo(msg['chat']['id'], filtered_img_path)
 
 
-    def download_user_photo(self, msg):
-          """
-            Downloads the photo that was sent to the Bot to `photos` directory.
-
-            :param msg: The message containing the photo.
-            :return: The path of the downloaded photo.
-            """
-            if not self.is_current_msg_photo(msg):
-                raise RuntimeError(f'Message content of type \'photo\' expected')
-
-            file_info = self.telegram_bot_client.get_file(msg['photo'][-1]['file_id'])
-            data = self.telegram_bot_client.download_file(file_info.file_path)
-            folder_name = file_info.file_path.split('/')[0]
-
-            if not os.path.exists(folder_name):
-                os.makedirs(folder_name)
-
-            with open(file_info.file_path, 'wb') as photo:
-                photo.write(data)
-
-            return file_info.file_path
-
-    def send_photo(self, chat_id, img_path):
-            """
-            Sends a photo to a chat.
-
-            :param chat_id: The ID of the chat to send the photo to.
-            :param img_path: The path of the photo to send.
-            """
-            if not os.path.exists(img_path):
-                raise RuntimeError("Image path doesn't exist")
-
-            self.telegram_bot_client.send_photo( chat_id, InputFile(img_path))
-
-
-
-
 class ObjectDetectionBot(Bot):
+    def __init__(self, token, telegram_chat_url):
+        super().__init__(token, telegram_chat_url)
+        self.config = yaml.safe_load(open('config.yaml'))
+        self.yolo5_url = self.config['yolo5_url']
+
     def handle_message(self, msg):
         logger.info(f'Incoming message: {msg}')
 
         if self.is_current_msg_photo(msg):
             photo_path = self.download_user_photo(msg)
 
-            # TODO upload the photo to S3
-            # TODO send an HTTP request to the `yolo5` service for prediction
-            # TODO send the returned results to the Telegram end-user
+            # Upload the photo to S3
             s3 = boto3.client('s3')
             s3.upload_file(photo_path, 'braymok-s3-docker', photo_path)
-            response = requests.get(f'{yolo5_url}/predict?imgName={photo_path}')
+            # Send an HTTP request to the `yolo5` service for prediction
+            response = requests.get(f'{self.yolo5_url}/predict?imgName={photo_path}')
+            # Send the returned results to the Telegram end-user
             self.send_text(msg['chat']['id'], response.text)
         else:
             self.send_text(msg['chat']['id'], 'Please send a photo')
-
-
-    def download_user_photo(self, msg):
-        """
-        Downloads the photo that was sent to the Bot to `photos` directory.
-
-        :param msg: The message containing the photo.
-        :return: The path of the downloaded photo.
-        """
-        if not self.is_current_msg_photo(msg):
-            raise RuntimeError(f'Message content of type \'photo\' expected')
-
-        file_info = self.telegram_bot_client.get_file(msg['photo'][-1]['file_id'])
-        data = self.telegram_bot_client.download_file(file_info.file_path)
-        folder_name = file_info.file_path.split('/')[0]
-
-        if not os.path.exists(folder_name):
-            os.makedirs(folder_name)
-
-        with open(file_info.file_path, 'wb') as photo:
-            photo.write(data)
-
-        return file_info.file_path
-
-    def send_photo(self, chat_id, img_path):
-        """
-        Sends a photo to a chat.
-        :param chat_id:
-        :param img_path:
-        :return:
-        """
-
-        if not os.path.exists(img_path):
-            raise RuntimeError("Image path doesn't exist")
-
-        self.telegram_bot_client.send_photo(
-            chat_id,
-            InputFile(img_path)
-        )
-
-
-
