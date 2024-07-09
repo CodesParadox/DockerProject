@@ -3,9 +3,10 @@ from loguru import logger
 import os
 import time
 from telebot.types import InputFile
-from polybot.img_proc import Img
 import boto3
 import requests
+import json
+from img_proc import Img
 from pathlib import Path
 import yaml
 
