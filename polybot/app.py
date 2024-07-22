@@ -1,13 +1,7 @@
-import time
-from pathlib import Path
-from flask import Flask, request, jsonify
-import uuid
-import yaml
-from loguru import logger
-from pymongo import MongoClient
+import flask
+from flask import request
 import os
-import boto3
-from botocore.exceptions import ClientError
+from bot import Bot
 
 logger = logger.opt(colors=True)
 
