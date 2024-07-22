@@ -1,7 +1,6 @@
 import time
 from pathlib import Path
 from flask import Flask, request, jsonify
-from detect import run
 import uuid
 import yaml
 from loguru import logger
